@@ -1,12 +1,13 @@
-# **Guide Building XNU 16.7 (xnu-3789.70.16)**
-For Building XNU 16.7 from start to finish
-Requirements macOS 10.12.6 and Xcode 8.3.3
+# **Guide - Building XNU 17.4 (xnu-4570.41.2)**
+For building XNU 17.4 (from start to finish) on macOS High Sierra.
 
-**These must be done in order or it will not build**
+**Requirements:** macOS 10.13.3 and Xcode 9.2
 
-Open terminal.app // copy each command in as you go.   
+**These must be done in given order or the build will fail.**
 
-Creating workspace
+Open `Terminal.app` and copy each command in as you go.   
+
+### Creating Workspace
 *************************************
 > 
 ```
@@ -18,29 +19,29 @@ mkdir -p ~/Desktop/xnu_build
 cd ~/Desktop/xnu_build
 ```
 
-#### Curling needed Sources
+#### Curling Needed Sources
 ************************************
 >
 ```
-curl -O https://opensource.apple.com/tarballs/dtrace/dtrace-209.50.12.tar.gz && 
-curl -O https://opensource.apple.com/tarballs/AvailabilityVersions/AvailabilityVersions-26.50.4.tar.gz && 
-curl -O https://opensource.apple.com/tarballs/xnu/xnu-3789.70.16.tar.gz && 
-curl -O https://opensource.apple.com/tarballs/libdispatch/libdispatch-703.50.37.tar.gz && 
-curl -O https://opensource.apple.com/tarballs/libplatform/libplatform-126.50.8.tar.gz
+curl -O https://opensource.apple.com/tarballs/dtrace/dtrace-262.tar.gz && 
+curl -O https://opensource.apple.com/tarballs/AvailabilityVersions/AvailabilityVersions-32.30.1.tar.gz && 
+curl -O https://opensource.apple.com/tarballs/xnu/xnu-4570.41.2.tar.gz && 
+curl -O https://opensource.apple.com/tarballs/libdispatch/libdispatch-913.30.4.tar.gz && 
+curl -O https://opensource.apple.com/tarballs/libplatform/libplatform-161.20.1.tar.gz
 ```
 
-#### Extracting and Removing Tar.gz files
+#### Extracting and Removing tar.gz Files
 ************************************
 >
 ```
 for file in *.tar.gz; do tar -zxf $file; done && rm -f *.tar.gz
 ```
 
-#### Building Dtrace's CTF"s Bianries
+### Building Dtrace CTF Binaries
 ************************************
 >
 ```
-cd dtrace-209.50.12
+cd dtrace-262
 ```
 
 ************************************
@@ -58,19 +59,19 @@ xcodebuild install -target ctfconvert -target ctfdump -target ctfmerge ARCHS="x8
 ************************************
 >
 ```
-sudo ditto $PWD/dst/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain   
+sudo ditto $PWD/dst/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain
 ```
 
-#### Installing Availability
+### Installing Availability
 ************************************
 >
 ```
-cd ../AvailabilityVersions-26.50.4/ 
+cd ../AvailabilityVersions-32.30.1/
 ```
 
 >
 ```
-mkdir -p dst   
+mkdir -p dst
 ```
 >
 ```
@@ -82,11 +83,11 @@ make install SRCROOT=$PWD DSTROOT=$PWD/dst
 ```
 sudo ditto $PWD/dst/usr/local `xcrun -sdk macosx -show-sdk-path`/usr/local
 ```
-#### Installing Headers to build libfirehose_kernel.a for XNU
+#### Installing headers to build `libfirehose_kernel.a` for XNU
 ************************************
 >
 ```
-cd ../xnu-3789.70.16/
+cd ../xnu-4570.41.2/
 ```
 
 >
@@ -99,37 +100,51 @@ mkdir -p BUILD.hdrs/obj BUILD.hdrs/sym BUILD.hdrs/dst
 make installhdrs SDKROOT=macosx ARCH_CONFIGS=X86_64 SRCROOT=$PWD OBJROOT=$PWD/BUILD.hdrs/obj SYMROOT=$PWD/BUILD.hdrs/sym DSTROOT=$PWD/BUILD.hdrs/dst
 ```
 
+We must create this file in order for `xcodebuild` to succeed.
 >
 ```
-sudo xcodebuild installhdrs -project libsyscall/Libsyscall.xcodeproj -sdk macosx ARCHS='x86_64 i386' SRCROOT=$PWD/libsyscall OBJROOT=$PWD/BUILD.hdrs/obj SYMROOT=$PWD/BUILD.hdrs/sym DSTROOT=$PWD/BUILD.hdrs/dst   
-```
->
-```
-sudo ditto BUILD.hdrs/dst `xcrun -sdk macosx -show-sdk-path`  
+touch libsyscall/os/thread_self_restrict.h
 ```
 
-### Copying libplatform source needed for libfirehose_kernel.a
+>
+```
+sudo xcodebuild installhdrs -project libsyscall/Libsyscall.xcodeproj -sdk macosx ARCHS='x86_64 i386' SRCROOT=$PWD/libsyscall OBJROOT=$PWD/BUILD.hdrs/obj SYMROOT=$PWD/BUILD.hdrs/sym DSTROOT=$PWD/BUILD.hdrs/dst 
+```
+>
+```
+sudo chown -R root:wheel BUILD.hdrs/dst/
+```
+>
+```
+sudo ditto BUILD.hdrs/dst `xcrun -sdk macosx -show-sdk-path`
+```
+
+#### Copying libplatform sources needed for `libfirehose_kernel.a`
 ************************************
 > 
 ```
-cd ../libplatform-126.50.8
+cd ../libplatform-161.20.1
 ```
 ************************************
 > 
 ```
-sudo ditto $PWD/include `xcrun -sdk macosx -show-sdk-path`/usr/local/include   
+sudo ditto $PWD/include `xcrun -sdk macosx -show-sdk-path`/usr/local/include
+```
+>
+```
+sudo ditto $PWD/private `xcrun -sdk macosx -show-sdk-path`/usr/local/include
 ```
 
 #### Building libfirehose_kernel.a
 ************************************
 > 
 ```
-cd ../libdispatch-703.50.37
+cd ../libdispatch-913.30.4
 ```
 
 > 
 ```
-mkdir -p BUILD.hdrs/obj BUILD.hdrs/sym BUILD.hdrs/dst
+mkdir -p obj sym dst
 ```
 > 
 ```
@@ -139,14 +154,15 @@ sudo xcodebuild install -project libdispatch.xcodeproj -target libfirehose_kerne
 ```
 sudo ditto $PWD/dst/usr/local `xcrun -sdk macosx -show-sdk-path`/usr/local
 ```
-#### Building XNU
+
+### Building XNU
 ************************************
 > 
 ```
-cd ../xnu-3789.70.16/
+cd ../xnu-4570.41.2/
 ```
 ************************************
 > 
 ```
-make SDKROOT=macosx ARCH_CONFIGS=X86_64 KERNEL_CONFIGS=RELEASE
+sudo make SDKROOT=macosx ARCH_CONFIGS=X86_64 KERNEL_CONFIGS=RELEASE
 ```
